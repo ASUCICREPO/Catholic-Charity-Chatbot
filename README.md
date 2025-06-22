@@ -65,18 +65,11 @@ Key features include:
 ### Common Prerequisites
 
 - **Fork the Repository**:
-  1. Navigate to `https://github.com/ridhamsonani-148/chatbot-template`.
+  1. Navigate to `https://github.com/ASUCICREPO/Catholic-Charity-Chatbot.git`.
   2. Click the "Fork" button in the top right corner.
   3. Select your GitHub account as the destination.
   4. Wait for the forking process to complete.
-  5. Your copy will be at `https://github.com/YOUR-USERNAME/chatbot-template`.
-
-- **GitHub Personal Access Token**:
-  1. Go to GitHub Settings > Developer Settings > Personal Access Tokens > Tokens (classic).
-  2. Click "Generate new token (classic)".
-  3. Name the token and select the `repo` and `admin:repo_hook` scopes.
-  4. Save the token securely.
-  5. See [GitHub Documentation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) for details.
+  5. Your copy will be at `https://github.com/YOUR-USERNAME/Catholic-Charity-Chatbot`.
 
 - **AWS Account Permissions**:
   - Ensure permissions for Amazon Q Business, AWS Lambda, API Gateway, AWS Amplify, Amazon S3, AWS CodeBuild, and IAM role/policy management.
@@ -101,7 +94,7 @@ Key features include:
 
 2. **Clone the Repository** (use your forked copy):
    ```bash
-   git clone https://github.com/YOUR-USERNAME/chatbot-template
+   git clone https://github.com/ASUCICREPO/Catholic-Charity-Chatbot.git
    cd chatbot-template
    ```
 
@@ -120,7 +113,7 @@ Key features include:
    ./deploy.sh
    ```
    - When prompted, provide:
-     - **GitHub URL**: `https://github.com/YOUR-USERNAME/chatbot-template.git`.
+     - **GitHub URL**: `https://github.com/ASUCICREPO/Catholic-Charity-Chatbot.git`.
      - **Other Parameters**: Press Enter for defaults or provide custom values (e.g., project name: `catholic-charities-hybrid`).
    - The script creates a CodeBuild project and deploys the stack (~15-20 minutes).
 
