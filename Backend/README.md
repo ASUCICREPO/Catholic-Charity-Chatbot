@@ -1,280 +1,142 @@
-# Catholic Charities AI Assistant - Backend Infrastructure
-
-This directory contains the complete AWS CDK infrastructure for the Catholic Charities AI Assistant.
-
-## 🏗️ Architecture
-
-\`\`\`
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   GitHub Repo   │    │   S3 Bucket      │    │  Q Business     │
-│  (data_source)  │───▶│  (Data Sources)  │───▶│  Application    │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                                         │
-┌─────────────────┐    ┌──────────────────┐             │
-│  Amplify App    │    │  API Gateway     │             │
-│  (Frontend)     │◀───│  (REST API)      │             │
-└─────────────────┘    └──────────────────┘             │
-                                │                        │
-                                ▼                        │
-                       ┌──────────────────┐             │
-                       │  Lambda Function │◀────────────┘
-                       │  (Chat Handler)  │
-                       └──────────────────┘
-\`\`\`
-
-## 📁 Directory Structure
-
-\`\`\`
-Backend/
-├── cdk/                          # CDK Infrastructure Code
-│   ├── lib/
-│   │   └── catholic-charities-stack.ts  # Main CDK Stack
-│   ├── bin/
-│   │   └── catholic-charities-cdk.ts    # CDK App Entry Point
-│   ├── package.json              # CDK Dependencies
-│   ├── cdk.json                  # CDK Configuration
-│   └── tsconfig.json             # TypeScript Configuration
-├── lambda/
-│   └── lambda_function.py        # Lambda Function Code
-├── buildspec.yml                 # CodeBuild Configuration
-├── deploy.sh                     # Deployment Script
-├── test-deployment.sh            # Testing Script
-└── README.md                     # This file
-\`\`\`
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-1. **AWS CLI** configured with appropriate permissions
-2. **Node.js** 18+ and npm
-3. **GitHub repository** with:
-   - `data_source/` folder containing your documents
-   - `Backend/lambda/lambda_function.py` file
-   - Frontend React application
-
-### 1. One-Command Deployment
-
-\`\`\`bash
-cd Backend
-chmod +x deploy.sh
-./deploy.sh
-\`\`\`
-
-The script will prompt you for:
-- GitHub repository URL
-- GitHub token (for accessing your repository)
-- GitHub branch (default: main)
-- CodeBuild project name (default: CatholicCharitiesDeploy)
-
-### 2. Manual CDK Deployment
-
-If you prefer to deploy directly with CDK:
-
-\`\`\`bash
-cd Backend/cdk
-
-# Install dependencies
-npm install
-
-# Bootstrap CDK (first time only)
-npx cdk bootstrap
-
-# Deploy with parameters
-npx cdk deploy CatholicCharitiesStack \
-  --parameters GitHubToken=your_github_token \
-  --parameters GitHubOwner=your_github_username \
-  --parameters GitHubRepo=your_repo_name \
-  --parameters AmplifyGithubBranch=main
-\`\`\`
-
-## 🔧 What Gets Created
-
-### 1. **S3 Bucket**
-- Stores files from your `data_source/` folder
-- Configured with proper permissions for Q Business
-
-### 2. **Q Business Application**
-- **Anonymous access enabled** (no user authentication required)
-- **S3 Data Source**: Indexes files from your S3 bucket
-- **Web Crawler**: Crawls Catholic Charities websites
-- Automatic indexing and knowledge base creation
+# Backend for Catholic Charities AI Assistant
+
+## Overview
 
-### 3. **Lambda Function**
-- Deployed from `Backend/lambda/lambda_function.py`
-- Environment variable: `QBUSINESS_APPLICATION_ID` (auto-populated)
-- Handles chat requests and returns responses with sources
+The backend of the Catholic Charities AI Assistant is responsible for managing data sources, processing user queries, and automating deployments. It leverages AWS services orchestrated through AWS CDK to provide a scalable and maintainable infrastructure. This README provides a detailed explanation of the backend architecture, component interactions, deployment process, and configuration.
 
-### 4. **API Gateway**
-- REST API with CORS enabled
-- `POST /chat` - Send messages to the chatbot
-- `GET /health` - Health check endpoint
+## Table of Contents
 
-### 5. **Amplify App**
-- Deploys your frontend React application
-- Environment variables automatically configured:
-  - `REACT_APP_API_BASE_URL`
-  - `REACT_APP_CHAT_ENDPOINT`
-  - `REACT_APP_HEALTH_ENDPOINT`
+- [Architecture](#architecture)
+  - [Key Components](#key-components)
+  - [Lambda Functions](#lambda-functions)
+- [Component Interactions](#component-interactions)
+- [Deployment Process](#deployment-process)
+- [Configuration](#configuration)
+- [Monitoring and Logging](#monitoring-and-logging)
+- [Adding New Data Sources](#adding-new-data-sources)
+- [Important Notes](#important-notes)
 
-## 🧪 Testing Your Deployment
+## Architecture
 
-After deployment, test everything:
+The backend architecture is built using AWS services defined as code via AWS CDK. It consists of the following key components:
 
-\`\`\`bash
-./test-deployment.sh
-\`\`\`
+### Key Components
 
-This will test:
-- ✅ API Gateway health endpoint
-- ✅ Chat functionality
-- ✅ S3 data sources
-- ✅ Q Business application status
-- ✅ Amplify app accessibility
+- **Amazon S3 Buckets**:
+  - `DataSourceBucket`: Stores text files (e.g., `urls1.txt`) containing URLs to be crawled and indexed by Amazon Q Business.
+  - `FrontendBuildBucket`: Stores zipped frontend build artifacts for automated deployment.
 
-## 📋 Environment Variables
+- **Amazon Q Business**:
+  - An application with an index and retriever for conversational AI capabilities.
+  - Web crawler data sources are created based on the URL files stored in the `DataSourceBucket`.
 
-The CDK automatically configures all environment variables:
+- **AWS Lambda Functions**:
+  - Manage data sources, handle chat queries, and automate frontend deployments.
 
-### Lambda Function
-- `QBUSINESS_APPLICATION_ID` - Auto-populated from Q Business app creation
+- **API Gateway**:
+  - Provides RESTful endpoints (`/chat` and `/health`) for the frontend to interact with the backend.
 
-### Amplify App
-- `REACT_APP_API_BASE_URL` - Auto-populated from API Gateway URL
-- `REACT_APP_CHAT_ENDPOINT` - Auto-populated chat endpoint
-- `REACT_APP_HEALTH_ENDPOINT` - Auto-populated health endpoint
+- **EventBridge**:
+  - Monitors S3 uploads to the `FrontendBuildBucket` and triggers automated deployments.
 
-## 🔍 Monitoring and Logs
+### Lambda Functions
 
-### CloudWatch Logs
-- Lambda function logs: `/aws/lambda/CatholicCharitiesStack-ChatLambda-*`
-- API Gateway logs: Available in API Gateway console
+- **DataSourceCreator**:
+  - **Runtime**: Python 3.11
+  - **Handler**: `index.handler`
+  - **Purpose**: Reads URL files from the `DataSourceBucket` and creates corresponding web crawler data sources in Amazon Q Business.
+  - **Trigger**: Invoked as a custom resource during CDK stack deployment.
 
-### Q Business Console
-- Monitor data source sync status
-- View application metrics
-- Check indexing progress
+- **ChatLambdaFunction**:
+  - **Runtime**: Python 3.11
+  - **Handler**: `lambda_function.lambda_handler`
+  - **Purpose**: Handles incoming chat queries from the frontend, interacts with Amazon Q Business to get responses, and returns the results with source attributions.
+  - **Trigger**: Invoked by API Gateway on `/chat` POST requests.
 
-## 🛠️ Customization
+- **AmplifyDeployer**:
+  - **Runtime**: Python 3.11
+  - **Handler**: `index.handler`
+  - **Purpose**: Starts AWS Amplify deployments when new frontend builds are uploaded to the `FrontendBuildBucket`.
+  - **Trigger**: Invoked by EventBridge on S3 object creation events.
 
-### Adding More Data Sources
+## Component Interactions
 
-1. Add files to your `data_source/` folder in GitHub
-2. Redeploy the stack - it will automatically upload new files
+1. **Data Source Management**:
+   - During stack deployment, the `DataSourceCreator` Lambda is invoked as a custom resource.
+   - It reads `.txt` files from the `DataSourceBucket`, each containing URLs to be crawled.
+   - For each file, it creates a web crawler data source in Amazon Q Business, configuring it to index the specified URLs.
 
-### Modifying Web Crawler URLs
+2. **Chat Functionality**:
+   - When a user submits a query via the frontend, it sends a POST request to the API Gateway's `/chat` endpoint.
+   - The API Gateway routes this request to the `ChatLambdaFunction`.
+   - The Lambda function extracts the user's message and calls the Amazon Q Business `chat_sync` API.
+   - Amazon Q Business processes the query using its indexed data and returns a response with source attributions.
+   - The Lambda function formats the response and sends it back to the frontend via the API Gateway.
 
-Edit the `seedUrls` in `catholic-charities-stack.ts`:
+3. **Deployment Automation**:
+   - When a new frontend build is ready, it's zipped and uploaded to the `FrontendBuildBucket` with a key starting with `builds/`.
+   - EventBridge detects this upload and triggers the `AmplifyDeployer` Lambda.
+   - The Lambda function retrieves the Amplify app ID and branch name from its environment variables.
+   - It then calls the AWS Amplify API to start a deployment using the uploaded build artifact.
+   - This ensures that the latest frontend is automatically deployed without manual intervention.
 
-\`\`\`typescript
-'seedUrls': [
-  'https://your-custom-url.com',
-  'https://another-url.com'
-]
-\`\`\`
+## Deployment Process
 
-### Updating Lambda Function
+The backend is deployed using AWS CDK, with the deployment process automated through AWS CodeBuild.
 
-1. Modify `Backend/lambda/lambda_function.py`
-2. Redeploy the stack
+- **deploy.sh**:
+  - Prompts the user for necessary parameters (e.g., GitHub URL, project name, AWS region).
+  - Creates or updates an IAM role for CodeBuild.
+  - Sets up a CodeBuild project with the specified parameters.
+  - Starts a build that executes the `buildspec.yml` file.
 
-## 🗑️ Cleanup
+- **buildspec.yml**:
+  - Installs dependencies and the AWS CDK CLI.
+  - Bootstraps the CDK environment.
+  - Deploys the CDK stack, which provisions all backend resources.
+  - Tests the API Gateway endpoints.
+  - Triggers data source sync jobs for Amazon Q Business.
+  - Builds the frontend, uploads the build artifact to S3, and triggers the automated deployment via EventBridge.
 
-To destroy all resources:
+This process ensures consistent deployment and configuration across different environments.
 
-\`\`\`bash
-./deploy.sh
-# When prompted, enter "destroy" as the action
-\`\`\`
+## Configuration
 
-Or with CDK directly:
+The backend relies on several parameters and environment variables:
 
-\`\`\`bash
-cd Backend/cdk
-npx cdk destroy CatholicCharitiesStack --force
-\`\`\`
+- **Parameters** (provided via `deploy.sh` or CDK context):
+  - `projectName`: Used to name resources uniquely.
+  - `urlFilesPath`: Location of the URL files for data sources.
+  - `amplifyAppName` and `amplifyBranchName`: For frontend deployment.
+  - `AWS_REGION`: The region where resources are deployed (default: `us-west-2`).
 
-## 🔒 Security Features
+- **Environment Variables**:
+  - `QBUSINESS_APPLICATION_ID`: Set in the `ChatLambdaFunction` to identify the Amazon Q Business application.
+  - `AMPLIFY_APP_ID` and `AMPLIFY_BRANCH_NAME`: Set in the `AmplifyDeployer` Lambda for deployment automation.
 
-- **Anonymous Q Business Access**: No user authentication required
-- **CORS Enabled**: Allows frontend to communicate with API
-- **IAM Roles**: Least privilege access for all services
-- **S3 Security**: Private bucket with restricted access
+These parameters are passed to the CDK stack and CodeBuild environment during deployment.
 
-## 💰 Cost Optimization
+## Monitoring and Logging
 
-- Lambda: Pay per request
-- Q Business: Pay per query
-- S3: Pay for storage used
-- API Gateway: Pay per API call
-- Amplify: Free tier available
+- All Lambda functions are configured to log to AWS CloudWatch.
+- API Gateway access logs can be enabled for detailed request tracking.
+- Amazon Q Business provides its own logging and monitoring capabilities through CloudWatch.
 
-## 🆘 Troubleshooting
+It is recommended to set up CloudWatch alarms and dashboards for critical metrics, such as Lambda errors or API Gateway latency.
 
-### Common Issues
+## Adding New Data Sources
 
-1. **GitHub Access Denied**
-   - Verify your GitHub token has repository access
-   - Check if repository is public or token has private repo access
+To add new URLs for indexing:
 
-2. **Q Business Application Creation Failed**
-   - Ensure you have Q Business permissions in your AWS account
-   - Check if Q Business is available in your region
+1. Create a new `.txt` file in the `data-sources` directory, listing the URLs to be crawled (one per line).
+2. Update the `urlFilesPath` parameter in the deployment script or CDK context.
+3. Redeploy the stack to create a new data source for the additional URLs.
 
-3. **Lambda Function Deployment Failed**
-   - Ensure `Backend/lambda/lambda_function.py` exists in your repository
-   - Check CloudFormation events for detailed error messages
+Alternatively, you can manually add data sources through the Amazon Q Business console after deployment.
 
-4. **Amplify Build Failed**
-   - Verify your frontend has a valid `package.json`
-   - Check Amplify console for build logs
+## Important Notes
 
-5. **API Gateway CORS Issues**
-   - The CDK automatically configures CORS
-   - If issues persist, check API Gateway console
-
-### Getting Help
-
-1. **Check CloudFormation Events**
-   \`\`\`bash
-   aws cloudformation describe-stack-events --stack-name CatholicCharitiesStack
-   \`\`\`
-
-2. **View Lambda Logs**
-   \`\`\`bash
-   aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/CatholicCharitiesStack"
-   \`\`\`
-
-3. **Q Business Application Status**
-   \`\`\`bash
-   aws qbusiness get-application --application-id YOUR_APP_ID
-   \`\`\`
-
-## 📞 Support
-
-For issues with this deployment:
-
-1. Check the troubleshooting section above
-2. Review CloudFormation stack events
-3. Check individual service consoles (Lambda, Q Business, API Gateway, Amplify)
-
-## 🎯 Next Steps
-
-After successful deployment:
-
-1. **Test the chat functionality** with various questions
-2. **Monitor Q Business indexing** progress in the console
-3. **Add more documents** to your `data_source/` folder as needed
-4. **Customize the frontend** to match your organization's branding
-5. **Set up monitoring** and alerts for production use
-
-## 📝 Notes
-
-- The deployment takes 15-20 minutes due to Q Business application setup and indexing
-- Data source synchronization happens automatically but may take additional time
-- The system works immediately with web crawler data even if S3 files are still indexing
-- All URLs and IDs are automatically configured - no manual environment variable setup required
-
----
-
-**🎉 Congratulations!** You now have a fully automated Catholic Charities AI Assistant with no manual configuration required!
+- **Region Selection**: The project is optimized for the `us-west-2` region. Deployment in other regions, such as `us-east-1`, may require additional configuration or face connectivity issues with certain URLs.
+- **Data Source Syncing**: The sync job for data sources may not start immediately after creation. A polling mechanism is implemented in `buildspec.yml` to wait for the data source to be ready.
+- **URL Accessibility**: Ensure that all URLs in the data source files are publicly accessible and not restricted by geo-location or IP rules, as this can affect the web crawler's ability to index them.
+- **Custom Resource for Data Sources**: The `DataSourcesCustomResource` is a CDK custom resource that invokes the `DataSourceCreator` Lambda during stack deployment, ensuring data sources are automatically created or updated based on the URL files in S3.
