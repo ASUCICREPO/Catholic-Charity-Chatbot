@@ -411,7 +411,7 @@ def handler(event, context):
       handler: "lambda_function.lambda_handler",
       code: lambda.Code.fromAsset("lambda"),
       role: lambdaRole,
-      timeout: cdk.Duration.seconds(30),
+      timeout: cdk.Duration.minutes(5),
       memorySize: 256,
       environment: {
         QBUSINESS_APPLICATION_ID: qBusinessApp.attrApplicationId,
