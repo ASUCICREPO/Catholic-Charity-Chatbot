@@ -61,7 +61,7 @@ function AppHeader({ showLeftNav, setLeftNav }) {
               whiteSpace: "nowrap",
             }}
           >
-            Catholic Charity USA
+            Catholic Charities USA
           </Typography>
         </Box>
       </Toolbar>
