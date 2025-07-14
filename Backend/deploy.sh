@@ -74,7 +74,7 @@ else
   sleep 10
 fi
 
-CODEBUILD_PROJECT_NAME="${PROJECT_NAME}-hybrid-deploy"
+CODEBUILD_PROJECT_NAME="${PROJECT_NAME}-deploy"
 echo "Creating CodeBuild project: $CODEBUILD_PROJECT_NAME"
 
 ENV_VARS=$(cat <<EOF
@@ -147,7 +147,7 @@ else
 fi
 
 echo ""
-echo "=== Hybrid Deployment Information ==="
+echo "=== Deployment Information ==="
 echo "Project Name: $PROJECT_NAME"
 echo "GitHub Repo URL: $GITHUB_URL"
 echo "Amplify App Name: $AMPLIFY_APP_NAME"
