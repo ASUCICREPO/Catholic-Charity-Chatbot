@@ -258,6 +258,25 @@ def send_response(event, context, response_status, response_data=None, physical_
     except Exception as e:
         logger.error(f"Failed to send response to CloudFormation: {str(e)}")
 
+def wait_for_data_source_ready(application_id, index_id, data_source_id, max_retries=10, delay=10):
+    """
+    Wait until the data source is ready to accept sync jobs.
+    """
+    for attempt in range(max_retries):
+        response = qbusiness_client.get_data_source(
+            applicationId=application_id,
+            indexId=index_id,
+            dataSourceId=data_source_id
+        )
+        status = response['status']
+        if status != 'PENDING_CREATION':
+            logger.info(f"Data source {data_source_id} is ready with status: {status}")
+            return True
+        logger.info(f"Data source {data_source_id} still in PENDING_CREATION. Waiting {delay} seconds...")
+        time.sleep(delay)
+    logger.error(f"Data source {data_source_id} not ready after {max_retries} attempts.")
+    return False
+
 def handler(event, context):
     try:
         request_type = event['RequestType']
@@ -289,7 +308,7 @@ def handler(event, context):
                     if key.endswith('.txt'):
                         file_name = key
                         base_name = file_name.replace('.txt', '')
-                        
+                      
                         try:
                             file_response = s3_client.get_object(Bucket=bucket_name, Key=key)
                             content = file_response['Body'].read().decode('utf-8').strip()
@@ -350,17 +369,19 @@ def handler(event, context):
                                 logger.info(f"Created data source {base_name} with ID {data_source_id}")
 
                                 # Start the sync job immediately after creation
-                                try:
-                                    qbusiness_client.start_data_source_sync_job(
-                                        applicationId=application_id,
-                                        dataSourceId=data_source_id,
-                                        indexId=index_id
-                                    )
-                                    logger.info(f"Started sync job for data source {base_name} with ID {data_source_id}")
-                                except Exception as e:
-                                    logger.error(f"Failed to start sync job for {base_name}: {str(e)}")
-                                    continue
-                                    
+                                if wait_for_data_source_ready(application_id, index_id, data_source_id):
+                                    try:
+                                        qbusiness_client.start_data_source_sync_job(
+                                            applicationId=application_id,
+                                            dataSourceId=data_source_id,
+                                            indexId=index_id
+                                        )
+                                        logger.info(f"Started sync job for data source {base_name} with ID {data_source_id}")
+                                    except Exception as e:
+                                        logger.error(f"Failed to start sync job for {base_name}: {str(e)}")
+                                else:
+                                    logger.error(f"Data source {base_name} not ready for sync job after creation.")
+
                         except Exception as e:
                             logger.error(f"Failed to process file {key}: {str(e)}")
                             continue
