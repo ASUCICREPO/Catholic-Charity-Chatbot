@@ -134,7 +134,7 @@ export class CatholicCharitiesStack extends cdk.Stack {
       description: "Main index for Catholic Charities content",
       type: "STARTER",
       capacityConfiguration: {
-        units: 1,
+        units: 5,
       },
     })
 
@@ -330,9 +330,9 @@ def handler(event, context):
                                         'additionalProperties': {
                                             'rateLimit': '300',
                                             'maxFileSize': '50',
-                                            'crawlDepth': '0',
+                                            'crawlDepth': '3',
                                             'maxLinksPerUrl': '100',
-                                            'crawlSubDomain': False,
+                                            'crawlSubDomain': True,
                                             'crawlAllDomain': False,
                                             'honorRobots': True,
                                             'crawlAttachments': False,
@@ -348,6 +348,19 @@ def handler(event, context):
                                 })
                                 
                                 logger.info(f"Created data source {base_name} with ID {data_source_id}")
+
+                                # Start the sync job immediately after creation
+                                try:
+                                    qbusiness_client.start_data_source_sync_job(
+                                        applicationId=application_id,
+                                        dataSourceId=data_source_id,
+                                        indexId=index_id
+                                    )
+                                    logger.info(f"Started sync job for data source {base_name} with ID {data_source_id}")
+                                except Exception as e:
+                                    logger.error(f"Failed to start sync job for {base_name}: {str(e)}")
+                                    continue
+                                    
                         except Exception as e:
                             logger.error(f"Failed to process file {key}: {str(e)}")
                             continue
