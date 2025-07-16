@@ -271,7 +271,7 @@ def wait_for_data_source_ready(application_id, index_id, data_source_id, max_ret
             dataSourceId=data_source_id
         )
         status = response['status']
-        if status != 'PENDING_CREATION':
+        if status == 'ACTIVE':
             logger.info(f"Data source {data_source_id} is ready with status: {status}")
             return True
         logger.info(f"Data source {data_source_id} still in PENDING_CREATION. Waiting {delay} seconds...")
