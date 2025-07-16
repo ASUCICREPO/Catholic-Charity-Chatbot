@@ -11,6 +11,8 @@ const projectName = app.node.tryGetContext("projectName") || process.env.PROJECT
 const urlFilesPath = app.node.tryGetContext("urlFilesPath") || process.env.URL_FILES_PATH 
 const amplifyAppName = app.node.tryGetContext("amplifyAppName") || process.env.AMPLIFY_APP_NAME
 const amplifyBranchName = app.node.tryGetContext("amplifyBranchName") || process.env.AMPLIFY_BRANCH_NAME
+const dataBucketName = app.node.tryGetContext("dataBucketName") || process.env.DATA_BUCKET_NAME
+const frontendBucketName = app.node.tryGetContext("frontendBucketName") || process.env.FRONTEND_BUCKET_NAME
 
 
 new CatholicCharitiesStack(app, "CatholicCharitiesStack", {
@@ -19,6 +21,8 @@ new CatholicCharitiesStack(app, "CatholicCharitiesStack", {
   urlFilesPath,
   amplifyAppName,
   amplifyBranchName,
+  dataBucketName,
+  frontendBucketName,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
