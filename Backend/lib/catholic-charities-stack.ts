@@ -30,7 +30,7 @@ export class CatholicCharitiesStack extends cdk.Stack {
 
     // S3 Buckets
     const dataBucket = new s3.Bucket(this, "DataSourceBucket", {
-      bucketName: dataBucketName || `${projectName}-data-${this.account}-${this.region}`.substring(0, 63),
+      bucketName: dataBucketName,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       versioned: false,
@@ -39,7 +39,7 @@ export class CatholicCharitiesStack extends cdk.Stack {
     })
 
     const frontendBucket = new s3.Bucket(this, "FrontendBuildBucket", {
-      bucketName: frontendBucketName || `${projectName}-frontend-${this.account}-${this.region}`.substring(0, 63),
+      bucketName: frontendBucketName,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       versioned: false,
