@@ -36,12 +36,12 @@ fi
 AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 if [ -z "${DATA_BUCKET_NAME:-}" ]; then
   read -rp "Enter data bucket name [default: ${PROJECT_NAME}-data-${AWS_ACCOUNT}-${AWS_REGION}]: " DATA_BUCKET_NAME
-  # DATA_BUCKET_NAME=${DATA_BUCKET_NAME:-${PROJECT_NAME}-data-${AWS_ACCOUNT}-${AWS_REGION}}
+  DATA_BUCKET_NAME=${DATA_BUCKET_NAME:-${PROJECT_NAME}-data-${AWS_ACCOUNT}-${AWS_REGION}}
 fi
 
 if [ -z "${FRONTEND_BUCKET_NAME:-}" ]; then
   read -rp "Enter frontend bucket name [default: ${PROJECT_NAME}-builds-${AWS_ACCOUNT}-${AWS_REGION}]: " FRONTEND_BUCKET_NAME
-  # FRONTEND_BUCKET_NAME=${FRONTEND_BUCKET_NAME:-${PROJECT_NAME}-builds-${AWS_ACCOUNT}-${AWS_REGION}}
+  FRONTEND_BUCKET_NAME=${FRONTEND_BUCKET_NAME:-${PROJECT_NAME}-builds-${AWS_ACCOUNT}-${AWS_REGION}}
 fi
 
 if [ -z "${ACTION:-}" ]; then
