@@ -23,11 +23,15 @@ phases:
           cdk destroy CatholicCharitiesStack --force \
             --context projectName="$PROJECT_NAME" \
             --context urlFilesPath="$URL_FILES_PATH"
+            --context dataBucketName="$DATA_BUCKET_NAME" \
+            --context frontendBucketName="$FRONTEND_BUCKET_NAME"
         else
           echo "=== PHASE 1: Backend Deployment ==="
           cdk deploy CatholicCharitiesStack --require-approval never \
             --context projectName="$PROJECT_NAME" \
             --context urlFilesPath="$URL_FILES_PATH" \
+            --context dataBucketName="$DATA_BUCKET_NAME" \
+            --context frontendBucketName="$FRONTEND_BUCKET_NAME" \
             --outputs-file outputs.json
           
           API_URL=$(cat outputs.json | jq -r '.CatholicCharitiesStack.APIGatewayURL // empty')

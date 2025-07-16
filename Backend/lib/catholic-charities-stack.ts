@@ -15,7 +15,8 @@ export interface CatholicCharitiesStackProps extends cdk.StackProps {
   readonly urlFilesPath?: string
   readonly amplifyAppName?: string
   readonly amplifyBranchName?: string
-  
+  readonly dataBucketName?: string    
+  readonly frontendBucketName?: string
 }
 
 export class CatholicCharitiesStack extends cdk.Stack {
@@ -24,10 +25,12 @@ export class CatholicCharitiesStack extends cdk.Stack {
 
     const projectName = props.projectName
     const urlFilesPath = props.urlFilesPath
+    const dataBucketName = props.dataBucketName
+    const frontendBucketName = props.frontendBucketName
 
     // S3 Buckets
     const dataBucket = new s3.Bucket(this, "DataSourceBucket", {
-      bucketName: `${projectName}-data-${this.account}-${this.region}`.substring(0, 63),
+      bucketName: dataBucketName || `${projectName}-data-${this.account}-${this.region}`.substring(0, 63),
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       versioned: false,
@@ -36,7 +39,7 @@ export class CatholicCharitiesStack extends cdk.Stack {
     })
 
     const frontendBucket = new s3.Bucket(this, "FrontendBuildBucket", {
-      bucketName: `${projectName}-builds-${this.account}-${this.region}`.substring(0, 63),
+      bucketName: frontendBucketName || `${projectName}-frontend-${this.account}-${this.region}`.substring(0, 63),
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       versioned: false,
