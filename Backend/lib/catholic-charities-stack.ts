@@ -197,6 +197,8 @@ export class CatholicCharitiesStack extends cdk.Stack {
                 "qbusiness:StartDataSourceSyncJob",
                 "qbusiness:StopDataSourceSyncJob",
                 "qbusiness:ListDataSourceSyncJobs",
+                "qbusiness:GetDataSource",
+                "qbusiness:GetDataSourceSyncJob" 
               ],
               resources: ["*"],
             }),
