@@ -33,6 +33,17 @@ if [ -z "${AWS_REGION:-}" ]; then
   AWS_REGION=${AWS_REGION:-us-west-2}
 fi
 
+AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+if [ -z "${DATA_BUCKET_NAME:-}" ]; then
+  read -rp "Enter data bucket name [default: ${PROJECT_NAME}-data-${AWS_ACCOUNT}-${AWS_REGION}]: " DATA_BUCKET_NAME
+  DATA_BUCKET_NAME=${DATA_BUCKET_NAME:-${PROJECT_NAME}-data-${AWS_ACCOUNT}-${AWS_REGION}}
+fi
+
+if [ -z "${FRONTEND_BUCKET_NAME:-}" ]; then
+  read -rp "Enter frontend bucket name [default: ${PROJECT_NAME}-builds-${AWS_ACCOUNT}-${AWS_REGION}]: " FRONTEND_BUCKET_NAME
+  FRONTEND_BUCKET_NAME=${FRONTEND_BUCKET_NAME:-${PROJECT_NAME}-builds-${AWS_ACCOUNT}-${AWS_REGION}}
+fi
+
 if [ -z "${ACTION:-}" ]; then
   read -rp "Enter action [deploy/destroy]: " ACTION
   ACTION=$(printf '%s' "$ACTION" | tr '[:upper:]' '[:lower:]')
@@ -84,7 +95,9 @@ ENV_VARS=$(cat <<EOF
   {"name": "ACTION", "value": "$ACTION", "type": "PLAINTEXT"},
   {"name": "CDK_DEFAULT_REGION", "value": "$AWS_REGION", "type": "PLAINTEXT"},
   {"name": "AMPLIFY_APP_NAME", "value": "$AMPLIFY_APP_NAME", "type": "PLAINTEXT"},
-  {"name": "AMPLIFY_BRANCH_NAME", "value": "$AMPLIFY_BRANCH_NAME", "type": "PLAINTEXT"}
+  {"name": "AMPLIFY_BRANCH_NAME", "value": "$AMPLIFY_BRANCH_NAME", "type": "PLAINTEXT"},
+  {"name": "DATA_BUCKET_NAME", "value": "$DATA_BUCKET_NAME", "type": "PLAINTEXT"},
+  {"name": "FRONTEND_BUCKET_NAME", "value": "$FRONTEND_BUCKET_NAME", "type": "PLAINTEXT"}
 ]
 EOF
 )
