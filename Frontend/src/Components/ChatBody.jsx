@@ -85,7 +85,7 @@ function ChatBody() {
           {processing && (
             <Box sx={{ marginLeft: isSmallScreen ? "1rem" : "3rem", marginBottom: "1rem" }}>
               <Typography variant="body2" sx={{ color: PRIMARY_MAIN, fontStyle: "italic" }}>
-                Thinking...
+                Processing...
               </Typography>
             </Box>
           )}

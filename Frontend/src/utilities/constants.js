@@ -7,7 +7,7 @@ export const SECONDARY_MAIN = "#D3D3D3" // Secondary color
 
 // Background color constants
 export const CHAT_BODY_BACKGROUND = "#FFFFF7" // White background for chat
-export const CHAT_LEFT_PANEL_BACKGROUND = "#1F0F40" // Dark purple for left panel
+export const CHAT_LEFT_PANEL_BACKGROUND = "#180038" // Dark purple for left panel
 export const ABOUT_US_HEADER_BACKGROUND = "#FFFFFF" // White text for headers in left panel
 export const FAQ_HEADER_BACKGROUND = "#FFFFFF" // White text for headers in left panel
 export const ABOUT_US_TEXT = "#FFFFFF" // White text for about us

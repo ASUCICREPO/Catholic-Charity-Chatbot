@@ -5,7 +5,7 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown"
 import MenuIcon from "@mui/icons-material/Menu"
 // Import Catholic symbol from Assets folder
 import CatholicSymbol from "../Assets/catholic.svg"
-import { PRIMARY_MAIN, CHAT_BODY_BACKGROUND, primary_50 } from "../utilities/constants"
+import { PRIMARY_MAIN,CHAT_BODY_BACKGROUND, CHAT_LEFT_PANEL_BACKGROUND, primary_50 } from "../utilities/constants"
 
 function AppHeader({ showLeftNav, setLeftNav }) {
   const isSmallScreen = useMediaQuery("(max-width:600px)")
@@ -14,7 +14,7 @@ function AppHeader({ showLeftNav, setLeftNav }) {
     <AppBar
       position="static"
       sx={{
-        backgroundColor: CHAT_BODY_BACKGROUND,
+        backgroundColor: CHAT_LEFT_PANEL_BACKGROUND,
         height: isSmallScreen ? "4rem" : "5rem",
         boxShadow: "none",
         borderBottom: `1.5px solid ${primary_50}`,
@@ -56,7 +56,7 @@ function AppHeader({ showLeftNav, setLeftNav }) {
             variant={isSmallScreen ? "h5" : "h5"}
             sx={{
               fontWeight: "bold",
-              color: PRIMARY_MAIN,
+              color: CHAT_BODY_BACKGROUND,
               fontSize: isSmallScreen ? "1rem" : "1.5rem",
               whiteSpace: "nowrap",
             }}
