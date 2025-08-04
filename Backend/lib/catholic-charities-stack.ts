@@ -328,7 +328,7 @@ def handler(event, context):
                                     roleArn=web_crawler_role_arn,
                                     configuration={
                                         'type': 'WEBCRAWLERV2',
-                                        'syncMode': 'FORCED_FULL_CRAWL',
+                                        'syncMode': 'INCREMENTAL',
                                         'connectionConfiguration': {
                                             'repositoryEndpointMetadata': {
                                                 'authentication': 'NoAuthentication',
