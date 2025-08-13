@@ -20,25 +20,25 @@ def lambda_handler(event, context):
     - Returns simple response with sources
     """
     
-    # Set CORS headers
+    # Set response headers (CORS is handled by Lambda Function URL)
     headers = {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-        'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+        'Content-Type': 'application/json'
     }
     
     try:
+        # Get HTTP method from Lambda Function URL event format
+        http_method = event.get('requestContext', {}).get('http', {}).get('method')
+        
         # Handle preflight OPTIONS request
-        if event.get('httpMethod') == 'OPTIONS':
+        if http_method == 'OPTIONS':
             return {
                 'statusCode': 200,
                 'headers': headers,
                 'body': json.dumps({'message': 'CORS preflight successful'})
             }
         
-        # Handle health check
-        if event.get('httpMethod') == 'GET':
+        # Handle health check (GET requests)
+        if http_method == 'GET':
             return {
                 'statusCode': 200,
                 'headers': headers,
@@ -46,6 +46,17 @@ def lambda_handler(event, context):
                     'status': 'healthy',
                     'service': 'Catholic Charities AI Assistant',
                     'timestamp': datetime.utcnow().isoformat()
+                })
+            }
+        
+        # Handle chat requests (POST requests)
+        if http_method != 'POST':
+            return {
+                'statusCode': 405,
+                'headers': headers,
+                'body': json.dumps({
+                    'error': 'Method not allowed. Use POST for chat requests or GET for health checks.',
+                    'success': False
                 })
             }
         
@@ -75,63 +86,57 @@ def lambda_handler(event, context):
         application_id = os.environ.get('QBUSINESS_APPLICATION_ID')
         
         if not application_id:
-            raise ValueError("QBUSINESS_APPLICATION_ID environment variable is not set")
+            raise ValueError("QBUSINESS_APPLICATION_ID environment variable is missing")
         
-        logger.info(f"Processing message: {user_message}")
-        logger.info(f"Application ID: {application_id}")
+        # Call Q Business chat_sync API
+        response = qbusiness_client.chat_sync(
+            applicationId=application_id,
+            userMessage=user_message
+        )
         
-        # Prepare the request for Amazon Q Business
-        chat_request = {
-            'applicationId': application_id,
-            'userMessage': user_message
-            # No userId for anonymous access
-            # No conversationId for stateless operation
-        }
+        # Log the full API response for debugging
+        logger.info(f"Q Business API Response: {response}")
         
-        logger.info("Calling Amazon Q Business API")
+        # Extract bot response from systemMessage
+        bot_response = response.get('systemMessage', 'Sorry, I couldn’t find an answer.')
         
-        # Call Amazon Q Business
-        response = qbusiness_client.chat_sync(**chat_request)
-        
-        logger.info("Successfully received response from Amazon Q Business")
-        logger.info(f"Response keys: {list(response.keys())}")
-        
-        # Extract the response
-        bot_response = ""
-        source_urls = []
-        
-        # Get the main system message
-        if 'systemMessage' in response:
-            bot_response = response['systemMessage']
-            logger.info(f"System message length: {len(bot_response)}")
-        
-        # Extract URLs from source attributions
+        # Extract and process source URLs with proper type detection
+        sources = []
         if 'sourceAttributions' in response:
-            logger.info(f"Found {len(response['sourceAttributions'])} source attributions")
-            
             for attribution in response['sourceAttributions']:
-                url = attribution.get('url', '').strip()
-                if url:  # Only add non-empty URLs
-                    source_urls.append(url)
-            
-            # Remove duplicates while preserving order
-            source_urls = list(dict.fromkeys(source_urls))
-            logger.info(f"Extracted {len(source_urls)} unique source URLs")
-        
+                if 'url' in attribution:
+                    url = attribution.get("url")
+                    title = attribution.get("title")
+                    
+                    # Determine if this is a document or web URL
+                    is_document = (
+                        url and (
+                            '.s3.' in url or 
+                            's3.amazonaws.com' in url or
+                            url.endswith(('.pdf', '.docx', '.xlsx', '.doc', '.xls', '.txt'))
+                        )
+                    )
+                    
+                    sources.append({
+                        "title": title,
+                        "url": url,
+                        "type": "DOCUMENT" if is_document else "WEB"
+                    })
+
         # Prepare the response
         chat_response = {
-            'success': True,
-            'message': bot_response,
-            'sources': source_urls,
-            'timestamp': datetime.utcnow().isoformat(),
-            'metadata': {
-                'sourceCount': len(source_urls),
-                'responseLength': len(bot_response),
-                'applicationId': application_id
+            "success": True,
+            "message": bot_response,
+            "sources": sources,  # <-- now contains full objects
+            "timestamp": datetime.utcnow().isoformat(),
+            "metadata": {
+                "sourceCount": len(sources),
+                "responseLength": len(bot_response),
+                "applicationId": application_id
             }
         }
-        
-        logger.info(f"Prepared response with {len(source_urls)} source URLs")
+
+        logger.info(f"Prepared response with {len(sources)} sources")
         
         return {
             'statusCode': 200,

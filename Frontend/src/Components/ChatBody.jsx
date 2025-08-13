@@ -183,18 +183,36 @@ function BotReplyWithSources({ message, sources = [] }) {
             <Box sx={{ marginTop: "0.5rem" }}>
               {/* Only one section: chips showing domain; tooltip shows full URL */}
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                {sources.map((url, index) => {
-                  const domainLabel = url
-                  const label = domainLabel
+                {sources.map((source, index) => {
+                  const isDocumentSource = source.type === 'DOCUMENT';
+                  
+                  // For documents, show the title or filename; for web URLs, show the full URL
+                  let label;
+                  if (isDocumentSource) {
+                    label = source.title || source.url.split('/').pop();
+                  } else {
+                    // Show the full URL for web sources
+                    label = source.url;
+                  }
+
+                  // Handle click for documents vs web URLs
+                  const handleClick = (e) => {
+                    if (isDocumentSource) {
+                      e.preventDefault();
+                      // For S3 documents, open directly (now that bucket is public)
+                      window.open(source.url, '_blank');
+                    }
+                  };
 
                   return (
-                    <Tooltip key={index} title={url}>
+                    <Tooltip key={index} title={isDocumentSource ? `Document: ${source.title || 'Click to view'}` : source.url}>
                       <Chip
                         label={label}
-                        component={Link}
-                        href={url}
+                        component={isDocumentSource ? "div" : Link}
+                        href={!isDocumentSource ? source.url : undefined}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={isDocumentSource ? handleClick : undefined}
                         clickable
                         size="small"
                         sx={{
@@ -203,6 +221,7 @@ function BotReplyWithSources({ message, sources = [] }) {
                           fontSize: isSmallScreen ? "0.7rem" : "0.75rem",
                           height: isSmallScreen ? "24px" : "28px",
                           whiteSpace: "nowrap",
+                          cursor: "pointer",
                           "&:hover": {
                             backgroundColor: "#2a1659",
                           },

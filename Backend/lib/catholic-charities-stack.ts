@@ -1,7 +1,6 @@
 import * as cdk from "aws-cdk-lib"
 import * as s3 from "aws-cdk-lib/aws-s3"
 import * as lambda from "aws-cdk-lib/aws-lambda"
-import * as apigateway from "aws-cdk-lib/aws-apigateway"
 import * as iam from "aws-cdk-lib/aws-iam"
 import * as qbusiness from "aws-cdk-lib/aws-qbusiness"
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment"
@@ -34,9 +33,20 @@ export class CatholicCharitiesStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       versioned: false,
-      publicReadAccess: false,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      publicReadAccess: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
     })
+
+    // Add bucket policy to allow public read access to documents
+    dataBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: "AllowPublicReadAccessToDocuments",
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.AnyPrincipal()],
+        actions: ["s3:GetObject"],
+        resources: [`${dataBucket.bucketArn}/*`],
+      })
+    )
 
     const frontendBucket = new s3.Bucket(this, "FrontendBuildBucket", {
       bucketName: frontendBucketName,
@@ -81,7 +91,7 @@ export class CatholicCharitiesStack extends cdk.Stack {
     const urlFilesDeployment = new s3deploy.BucketDeployment(this, "DeployUrlFiles", {
       sources: [s3deploy.Source.asset(`./${urlFilesPath}`)],
       destinationBucket: dataBucket,
-      include: ["*.txt"],
+      include: ["*.txt","*.xlsx", "*.pdf", "*.docx"],
     })
 
     const applicationRole = new iam.Role(this, "QBusinessApplicationRole", {
@@ -172,6 +182,36 @@ export class CatholicCharitiesStack extends cdk.Stack {
             }),
           ],
         }),
+        S3DataSourcePolicy: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:GetBucketLocation",
+                "s3:GetBucketVersioning"
+              ],
+              resources: [
+                dataBucket.bucketArn,
+                `${dataBucket.bucketArn}/*`
+              ],
+            }),
+          ],
+        }),
+        QBusinessDataSourcePolicy: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                "qbusiness:PutDataSourceSyncJob",
+                "qbusiness:BatchPutDocument",
+                "qbusiness:BatchDeleteDocument"
+              ],
+              resources: ["*"],
+            }),
+          ],
+        }),
       },
     })
 
@@ -228,6 +268,7 @@ import json
 import logging
 import time
 import urllib3
+import re
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -282,6 +323,18 @@ def wait_for_data_source_ready(application_id, index_id, data_source_id, max_ret
     logger.error(f"Data source {data_source_id} not ready after {max_retries} attempts.")
     return False
 
+def sanitize_display_name(name):
+    """
+    Sanitize display name to conform to [a-zA-Z0-9][a-zA-Z0-9_-]* pattern
+    """
+    # Remove invalid characters, replace with underscore
+    sanitized = re.sub(r'[^a-zA-Z0-9_-]', '_', name)
+    # Ensure it starts with a letter or number
+    if not sanitized[0].isalnum():
+        sanitized = 'DS_' + sanitized
+    # Trim to 1000 characters
+    return sanitized[:1000]
+
 def handler(event, context):
     try:
         request_type = event['RequestType']
@@ -328,7 +381,7 @@ def handler(event, context):
                                     roleArn=web_crawler_role_arn,
                                     configuration={
                                         'type': 'WEBCRAWLERV2',
-                                        'syncMode': 'INCREMENTAL',
+                                        'syncMode': 'FULL_CRAWL',
                                         'connectionConfiguration': {
                                             'repositoryEndpointMetadata': {
                                                 'authentication': 'NoAuthentication',
@@ -368,6 +421,7 @@ def handler(event, context):
                                 data_sources.append({
                                     'id': data_source_id,
                                     'name': base_name,
+                                    'type': 'WEBCRAWLER',
                                     'urls': len(urls)
                                 })
                                 
@@ -390,7 +444,77 @@ def handler(event, context):
                         except Exception as e:
                             logger.error(f"Failed to process file {key}: {str(e)}")
                             continue
-            
+                    
+                    elif any(key.endswith(ext) for ext in ['.csv', '.xlsx', '.pdf', '.docx']):
+                        try:
+                            sanitized_name = sanitize_display_name(key)
+                            logger.info(f"Processing document {key} with sanitized name {sanitized_name}")
+                            # Create a data source for the document
+                            data_source_response = qbusiness_client.create_data_source(
+                                applicationId=application_id,
+                                indexId=index_id,
+                                displayName=f"{project_name}-{sanitized_name}",
+                                description=f"Document source for {key}",
+                                roleArn=web_crawler_role_arn,
+                                configuration={
+                                    'type': 'S3',
+                                    'syncMode': 'FULL_CRAWL',
+                                    'connectionConfiguration': {
+                                        'repositoryEndpointMetadata': {
+                                            'BucketName': bucket_name
+                                        }
+                                    },
+                                    'repositoryConfigurations': {
+                                        'document': {
+                                            'fieldMappings': [
+                                                {
+                                                    'indexFieldName': '_source_uri',
+                                                    'indexFieldType': 'STRING',
+                                                    'dataSourceFieldName': 'sourceUrl',
+                                                },
+                                                {
+                                                    'indexFieldName': '_document_title',
+                                                    'indexFieldType': 'STRING',
+                                                    'dataSourceFieldName': 'title',
+                                                },
+                                                {
+                                                    'indexFieldName': '_document_body',
+                                                    'indexFieldType': 'STRING',
+                                                    'dataSourceFieldName': 'content',
+                                                },
+                                            ],
+                                        },
+                                    },
+                                    'additionalProperties': {
+                                        'inclusionPatterns': ['*.csv'],
+                                        'exclusionPatterns': ['*.txt'],
+                                    },
+                                }
+                            )
+                            data_source_id = data_source_response['dataSourceId']
+                            data_sources.append({
+                                'id': data_source_id,
+                                'name': key,
+                                'type': 'DOCUMENT',
+                                'location': f"s3://{bucket_name}/{key}"
+                            })
+                            
+                            if wait_for_data_source_ready(application_id, index_id, data_source_id):
+                                    try:
+                                        qbusiness_client.start_data_source_sync_job(
+                                            applicationId=application_id,
+                                            dataSourceId=data_source_id,
+                                            indexId=index_id
+                                        )
+                                        logger.info(f"Started sync job for data source {sanitized_name} with ID {data_source_id}")
+                                    except Exception as e:
+                                        logger.error(f"Failed to start sync job for {sanitized_name}: {str(e)}")
+                            else:
+                                logger.error(f"Data source {sanitized_name} not ready for sync job after creation.")
+                        except Exception as e:
+                            logger.error(f"Failed to process document {key}: {str(e)}")
+                            continue
+ 
             send_response(event, context, 'SUCCESS', {
                 'DataSources': json.dumps(data_sources),
                 'DataSourceCount': str(len(data_sources))
@@ -459,21 +583,17 @@ def handler(event, context):
       description: "Catholic Charities Q Business Chat Handler",
     })
 
-    const api = new apigateway.RestApi(this, "ChatAPI", {
-      restApiName: `${projectName}-api`,
-      description: "Catholic Charities Chatbot API",
-      defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
-        allowMethods: apigateway.Cors.ALL_METHODS,
-        allowHeaders: ["Content-Type", "X-Amz-Date", "Authorization", "X-Api-Key", "X-Amz-Security-Token"],
+    // Create Lambda Function URL instead of API Gateway
+    const functionUrl = chatLambda.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE,
+      cors: {
+        allowCredentials: false,
+        allowedHeaders: ["Content-Type", "Authorization", "X-Amz-Date", "X-Api-Key", "X-Amz-Security-Token"],
+        allowedMethods: [lambda.HttpMethod.GET, lambda.HttpMethod.POST],
+        allowedOrigins: ["*"], // In production, you might want to restrict this to your Amplify domain
+        maxAge: cdk.Duration.hours(1),
       },
     })
-
-    const lambdaIntegration = new apigateway.LambdaIntegration(chatLambda)
-    const chatResource = api.root.addResource("chat")
-    chatResource.addMethod("POST", lambdaIntegration)
-    const healthResource = api.root.addResource("health")
-    healthResource.addMethod("GET", lambdaIntegration)
 
     const amplifyDeployerRole = new iam.Role(this, "AmplifyDeployerRole", {
       assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
@@ -650,19 +770,19 @@ def handler(event, context):
       description: "Q Business Data Sources Info",
     })
 
-    new cdk.CfnOutput(this, "APIGatewayURL", {
-      value: api.url,
-      description: "API Gateway URL",
+    new cdk.CfnOutput(this, "LambdaFunctionURL", {
+      value: functionUrl.url,
+      description: "Lambda Function URL",
     })
 
     new cdk.CfnOutput(this, "ChatEndpoint", {
-      value: `${api.url}chat`,
-      description: "Chat API Endpoint",
+      value: functionUrl.url,
+      description: "Chat API Endpoint (Lambda Function URL)",
     })
 
     new cdk.CfnOutput(this, "HealthEndpoint", {
-      value: `${api.url}health`,
-      description: "Health Check Endpoint",
+      value: functionUrl.url,
+      description: "Health Check Endpoint (Lambda Function URL)",
     })
 
     new cdk.CfnOutput(this, "S3BucketName", {

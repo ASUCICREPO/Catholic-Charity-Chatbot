@@ -40,11 +40,11 @@ export const API_BASE_URL = getApiBaseUrl()
 export const CHAT_ENDPOINT =
   process.env.REACT_APP_CHAT_ENDPOINT ||
   (typeof window !== "undefined" && window.ENV?.REACT_APP_CHAT_ENDPOINT) ||
-  `${API_BASE_URL}/chat`
+  API_BASE_URL
 export const HEALTH_ENDPOINT =
   process.env.REACT_APP_HEALTH_ENDPOINT ||
   (typeof window !== "undefined" && window.ENV?.REACT_APP_HEALTH_ENDPOINT) ||
-  `${API_BASE_URL}/health`
+  API_BASE_URL
 
 // Features
 export const ALLOW_FILE_UPLOAD = false

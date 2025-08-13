@@ -7,14 +7,16 @@ phases:
       python: 3.11
     commands:
       - echo "Installing AWS CDK CLI..."
-      - npm install -g aws-cdk@2.161.1
+      - npm install -g aws-cdk@latest
       - cd Backend
       - npm install
 
   pre_build:
     commands:
       - npm run build
+      - echo "=== Bootstrapping CDK Environment ==="
       - cdk bootstrap --require-approval never
+      - echo "✅ CDK Bootstrap completed"
 
   build:
     commands:
@@ -22,7 +24,7 @@ phases:
         if [ "$ACTION" = "destroy" ]; then          
           cdk destroy CatholicCharitiesStack --force \
             --context projectName="$PROJECT_NAME" \
-            --context urlFilesPath="$URL_FILES_PATH"
+            --context urlFilesPath="$URL_FILES_PATH" \
             --context dataBucketName="$DATA_BUCKET_NAME" \
             --context frontendBucketName="$FRONTEND_BUCKET_NAME"
         else
@@ -34,40 +36,60 @@ phases:
             --context frontendBucketName="$FRONTEND_BUCKET_NAME" \
             --outputs-file outputs.json
           
-          API_URL=$(cat outputs.json | jq -r '.CatholicCharitiesStack.APIGatewayURL // empty')
+          LAMBDA_FUNCTION_URL=$(cat outputs.json | jq -r '.CatholicCharitiesStack.LambdaFunctionURL // empty')
           FRONTEND_BUILD_BUCKET=$(cat outputs.json | jq -r '.CatholicCharitiesStack.FrontendBuildBucketName // empty')
           
-          if [ -z "$API_URL" ] || [ -z "$FRONTEND_BUILD_BUCKET" ]; then
+          if [ -z "$LAMBDA_FUNCTION_URL" ] || [ -z "$FRONTEND_BUILD_BUCKET" ]; then
             echo "Error: Could not extract required outputs from CDK deployment"
             exit 1
           fi
           
-          echo "=== PHASE 2: Testing API Endpoints ==="
-          HEALTH_RESPONSE=$(curl -s -w "%{http_code}" "${API_URL}health" || echo "000")
+          echo "=== PHASE 2: Testing Lambda Function URL Endpoints ==="
+          HEALTH_RESPONSE=$(curl -s -w "%{http_code}" "${LAMBDA_FUNCTION_URL}" || echo "000")
           if echo "$HEALTH_RESPONSE" | grep -q "200"; then
-            echo "✅ API Gateway health check passed"
+            echo "✅ Lambda Function URL health check passed"
           else
-            echo "⚠️ API Gateway health check failed"
+            echo "⚠️ Lambda Function URL health check failed"
           fi
           
           
           echo "=== PHASE 4: Amplify App Setup ==="
           echo "Creating/updating Amplify app..."
-          AMPLIFY_APP_ID=$(aws amplify create-app \
-            --name "$AMPLIFY_APP_NAME" \
-            --platform WEB \
-            --environment-variables "REACT_APP_API_BASE_URL=$API_URL,REACT_APP_CHAT_ENDPOINT=${API_URL}chat,REACT_APP_HEALTH_ENDPOINT=${API_URL}health" \
-            --query 'app.appId' \
-            --output text 2>/dev/null || \
-            aws amplify list-apps \
+          echo "App name: $AMPLIFY_APP_NAME"
+          
+          # First, try to find existing app
+          AMPLIFY_APP_ID=$(aws amplify list-apps \
             --query "apps[?name=='$AMPLIFY_APP_NAME'].appId" \
             --output text)
+          
+          if [ -z "$AMPLIFY_APP_ID" ] || [ "$AMPLIFY_APP_ID" = "None" ]; then
+            echo "No existing app found, creating new Amplify app..."
+            AMPLIFY_APP_ID=$(aws amplify create-app \
+              --name "$AMPLIFY_APP_NAME" \
+              --platform WEB \
+              --environment-variables "REACT_APP_API_BASE_URL=$LAMBDA_FUNCTION_URL,REACT_APP_CHAT_ENDPOINT=$LAMBDA_FUNCTION_URL,REACT_APP_HEALTH_ENDPOINT=$LAMBDA_FUNCTION_URL" \
+              --query 'app.appId' \
+              --output text)
+          else
+            echo "Found existing app with ID: $AMPLIFY_APP_ID"
+            # Update environment variables for existing app
+            aws amplify update-app \
+              --app-id "$AMPLIFY_APP_ID" \
+              --environment-variables "REACT_APP_API_BASE_URL=$LAMBDA_FUNCTION_URL,REACT_APP_CHAT_ENDPOINT=$LAMBDA_FUNCTION_URL,REACT_APP_HEALTH_ENDPOINT=$LAMBDA_FUNCTION_URL"
+          fi
+          
+          echo "Final Amplify App ID: $AMPLIFY_APP_ID"
+          
+          if [ -z "$AMPLIFY_APP_ID" ] || [ "$AMPLIFY_APP_ID" = "None" ]; then
+            echo "❌ ERROR: Failed to create or find Amplify app"
+            exit 1
+          fi
             
           aws amplify create-branch \
             --app-id "$AMPLIFY_APP_ID" \
             --branch-name "$AMPLIFY_BRANCH_NAME" \
             --stage PRODUCTION \
-            --environment-variables "REACT_APP_API_BASE_URL=$API_URL,REACT_APP_CHAT_ENDPOINT=${API_URL}chat,REACT_APP_HEALTH_ENDPOINT=${API_URL}health" \
+            --environment-variables "REACT_APP_API_BASE_URL=$LAMBDA_FUNCTION_URL,REACT_APP_CHAT_ENDPOINT=$LAMBDA_FUNCTION_URL,REACT_APP_HEALTH_ENDPOINT=$LAMBDA_FUNCTION_URL" \
             --no-cli-pager 2>/dev/null || echo "Branch already exists"
 
           aws lambda update-function-configuration \
@@ -80,9 +102,9 @@ phases:
           export PUBLIC_URL=""
           export GENERATE_SOURCEMAP=false
           
-          echo "REACT_APP_API_BASE_URL=$API_URL" > .env.production
-          echo "REACT_APP_CHAT_ENDPOINT=${API_URL}chat" >> .env.production
-          echo "REACT_APP_HEALTH_ENDPOINT=${API_URL}health" >> .env.production
+          echo "REACT_APP_API_BASE_URL=$LAMBDA_FUNCTION_URL" > .env.production
+          echo "REACT_APP_CHAT_ENDPOINT=$LAMBDA_FUNCTION_URL" >> .env.production
+          echo "REACT_APP_HEALTH_ENDPOINT=$LAMBDA_FUNCTION_URL" >> .env.production
           echo "PUBLIC_URL=" >> .env.production
           echo "GENERATE_SOURCEMAP=false" >> .env.production
           
@@ -130,8 +152,8 @@ phases:
           echo "✅ Frontend: Automated deployment triggered via S3 upload"
           echo ""
           echo "🔗 URLs:"
-          echo "Chat API: ${API_URL}chat"
-          echo "Health Check: ${API_URL}health"
+          echo "Chat API: ${LAMBDA_FUNCTION_URL}"
+          echo "Health Check: ${LAMBDA_FUNCTION_URL}"
           if [ -n "$AMPLIFY_APP_ID" ]; then
             echo "Amplify URL: https://$AMPLIFY_BRANCH_NAME.$AMPLIFY_APP_ID.amplifyapp.com"
           fi
@@ -143,5 +165,5 @@ phases:
 
 artifacts:
   files:
-    - '**/*'
-  base-directory: 'cdk.out'
+    - "**/*"
+  base-directory: "cdk.out"
