@@ -53,7 +53,7 @@ phases:
           fi
           
           
-          echo "=== PHASE 4: Amplify App Setup ==="
+          echo "=== PHASE 3: Amplify App Setup ==="
           echo "Creating/updating Amplify app..."
           echo "App name: $AMPLIFY_APP_NAME"
           
@@ -96,7 +96,7 @@ phases:
             --function-name "$(cat outputs.json | jq -r '.CatholicCharitiesStack.AmplifyDeployerFunctionName')" \
             --environment "Variables={AMPLIFY_APP_ID=$AMPLIFY_APP_ID, AMPLIFY_BRANCH_NAME=$AMPLIFY_BRANCH_NAME}"
           
-          echo "=== PHASE 5: Frontend Build and Automated Deployment ==="
+          echo "=== PHASE 4: Frontend Build and Automated Deployment ==="
           cd ../Frontend
           
           export PUBLIC_URL=""
@@ -109,7 +109,7 @@ phases:
           echo "GENERATE_SOURCEMAP=false" >> .env.production
           
           rm -rf build/ node_modules/.cache/
-          npm ci --production=false
+          npm install
           npm run build
           
           if [ ! -f "build/index.html" ]; then

@@ -1,43 +1,56 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import { Tooltip, Box, Typography, useMediaQuery, Link, Chip, Collapse } from "@mui/material"
-import ChatInput from "./ChatInput"
-import UserReply from "./UserReply"
-import BotReply from "./BotReply"
-import createMessageBlock from "../utilities/createMessageBlock"
-import { ALLOW_FAQ, CHAT_BODY_BACKGROUND, PRIMARY_MAIN, CHAT_ENDPOINT } from "../utilities/constants"
-import FAQExamples from "./FAQExamples"
+import { useState, useRef, useEffect } from "react";
+import {
+  Tooltip,
+  Box,
+  Typography,
+  useMediaQuery,
+  Link,
+  Chip,
+  Collapse,
+} from "@mui/material";
+import ChatInput from "./ChatInput";
+import UserReply from "./UserReply";
+import BotReply from "./BotReply";
+import createMessageBlock from "../utilities/createMessageBlock";
+import {
+  ALLOW_FAQ,
+  CHAT_BODY_BACKGROUND,
+  PRIMARY_MAIN,
+  CHAT_ENDPOINT,
+} from "../utilities/constants";
+import FAQExamples from "./FAQExamples";
 
 function ChatBody() {
-  const [messageList, setMessageList] = useState([])
-  const [processing, setProcessing] = useState(false)
-  const [questionAsked, setQuestionAsked] = useState(false)
-  const messagesEndRef = useRef(null)
-  const isSmallScreen = useMediaQuery("(max-width:600px)")
+  const [messageList, setMessageList] = useState([]);
+  const [processing, setProcessing] = useState(false);
+  const [questionAsked, setQuestionAsked] = useState(false);
+  const messagesEndRef = useRef(null);
+  const isSmallScreen = useMediaQuery("(max-width:600px)");
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messageList])
+    scrollToBottom();
+  }, [messageList]);
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }
+  };
 
   const handleSendMessage = async (message) => {
-    setProcessing(true)
-    const newMessageBlock = createMessageBlock(message, "USER", "TEXT", "SENT")
-    setMessageList([...messageList, newMessageBlock])
+    setProcessing(true);
+    const newMessageBlock = createMessageBlock(message, "USER", "TEXT", "SENT");
+    setMessageList([...messageList, newMessageBlock]);
 
-    await getBotResponse(setMessageList, setProcessing, message)
-    setQuestionAsked(true)
-  }
+    await getBotResponse(setMessageList, setProcessing, message);
+    setQuestionAsked(true);
+  };
 
   const handlePromptClick = (prompt) => {
-    handleSendMessage(prompt)
-  }
+    handleSendMessage(prompt);
+  };
 
   return (
     <Box
@@ -70,25 +83,25 @@ function ChatBody() {
               key={index}
               mb={3}
               sx={{
-                marginTop: index > 0 && messageList[index - 1].sentBy !== msg.sentBy ? "1.5rem" : "0.75rem",
+                marginTop:
+                  index > 0 && messageList[index - 1].sentBy !== msg.sentBy
+                    ? "1.5rem"
+                    : "0.75rem",
               }}
             >
               {msg.sentBy === "USER" ? (
                 <UserReply message={msg.message} />
               ) : (
-                <BotReplyWithSources message={msg.message} sources={msg.sources} />
+                <BotReplyWithSources
+                  message={msg.message}
+                  sources={msg.sources}
+                />
               )}
             </Box>
           ))}
 
-          {/* Show simple loading indicator when processing */}
-          {processing && (
-            <Box sx={{ marginLeft: isSmallScreen ? "1rem" : "3rem", marginBottom: "1rem" }}>
-              <Typography variant="body2" sx={{ color: PRIMARY_MAIN, fontStyle: "italic" }}>
-                Processing...
-              </Typography>
-            </Box>
-          )}
+          {/* Enhanced loading indicator when processing */}
+          {processing && <EnhancedLoadingIndicator />}
 
           <div ref={messagesEndRef} />
         </Box>
@@ -145,13 +158,13 @@ function ChatBody() {
         <ChatInput onSendMessage={handleSendMessage} processing={processing} />
       </Box>
     </Box>
-  )
+  );
 }
 
 // Enhanced BotReply component with actual URL display
 function BotReplyWithSources({ message, sources = [] }) {
-  const isSmallScreen = useMediaQuery("(max-width:600px)")
-  const [showSources, setShowSources] = useState(false)
+  const isSmallScreen = useMediaQuery("(max-width:600px)");
+  const [showSources, setShowSources] = useState(false);
 
   return (
     <Box>
@@ -160,7 +173,12 @@ function BotReplyWithSources({ message, sources = [] }) {
 
       {/* If there are sources, show the toggle */}
       {sources && sources.length > 0 && (
-        <Box sx={{ marginTop: "0.5rem", marginLeft: isSmallScreen ? "1rem" : "3rem" }}>
+        <Box
+          sx={{
+            marginTop: "0.5rem",
+            marginLeft: isSmallScreen ? "1rem" : "3rem",
+          }}
+        >
           {/* Toggle text: click to expand/collapse */}
           <Typography
             variant="body2"
@@ -175,7 +193,9 @@ function BotReplyWithSources({ message, sources = [] }) {
               "&:hover": { textDecoration: "underline" },
             }}
           >
-            {showSources ? `Hide Sources (${sources.length})` : `Show Sources (${sources.length})`}
+            {showSources
+              ? `Hide Sources (${sources.length})`
+              : `Show Sources (${sources.length})`}
           </Typography>
 
           {/* Expand/collapse block */}
@@ -184,12 +204,12 @@ function BotReplyWithSources({ message, sources = [] }) {
               {/* Only one section: chips showing domain; tooltip shows full URL */}
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                 {sources.map((source, index) => {
-                  const isDocumentSource = source.type === 'DOCUMENT';
-                  
+                  const isDocumentSource = source.type === "DOCUMENT";
+
                   // For documents, show the title or filename; for web URLs, show the full URL
                   let label;
                   if (isDocumentSource) {
-                    label = source.title || source.url.split('/').pop();
+                    label = source.title || source.url.split("/").pop();
                   } else {
                     // Show the full URL for web sources
                     label = source.url;
@@ -200,12 +220,19 @@ function BotReplyWithSources({ message, sources = [] }) {
                     if (isDocumentSource) {
                       e.preventDefault();
                       // For S3 documents, open directly (now that bucket is public)
-                      window.open(source.url, '_blank');
+                      window.open(source.url, "_blank");
                     }
                   };
 
                   return (
-                    <Tooltip key={index} title={isDocumentSource ? `Document: ${source.title || 'Click to view'}` : source.url}>
+                    <Tooltip
+                      key={index}
+                      title={
+                        isDocumentSource
+                          ? `Document: ${source.title || "Click to view"}`
+                          : source.url
+                      }
+                    >
                       <Chip
                         label={label}
                         component={isDocumentSource ? "div" : Link}
@@ -228,7 +255,7 @@ function BotReplyWithSources({ message, sources = [] }) {
                         }}
                       />
                     </Tooltip>
-                  )
+                  );
                 })}
               </Box>
             </Box>
@@ -236,19 +263,82 @@ function BotReplyWithSources({ message, sources = [] }) {
         </Box>
       )}
     </Box>
-  )
+  );
 }
 
-export default ChatBody
+// Simple Loading Indicator with time-based text changes and animated dots
+function EnhancedLoadingIndicator() {
+  const [currentMessage, setCurrentMessage] = useState("Processing");
+  const [dots, setDots] = useState("");
+  const [startTime] = useState(Date.now());
+  const isSmallScreen = useMediaQuery("(max-width:600px)");
+
+  useEffect(() => {
+    const updateMessage = () => {
+      const elapsed = Date.now() - startTime;
+
+      if (elapsed < 5000) {
+        // 0-5 seconds: Processing
+        setCurrentMessage("Processing");
+      } else if (elapsed < 10000) {
+        // 5-10 seconds: Analyzing
+        setCurrentMessage("Analyzing");
+      } else {
+        // 10+ seconds: Thinking
+        setCurrentMessage("Thinking");
+      }
+    };
+
+    // Update immediately
+    updateMessage();
+
+    // Check every 100ms for smooth transitions
+    const interval = setInterval(updateMessage, 100);
+
+    return () => clearInterval(interval);
+  }, [startTime]);
+
+  // Animate dots every 500ms
+  useEffect(() => {
+    const dotsInterval = setInterval(() => {
+      setDots((prev) => {
+        if (prev === "...") return "";
+        return prev + ".";
+      });
+    }, 500);
+
+    return () => clearInterval(dotsInterval);
+  }, []);
+
+  return (
+    <Box
+      sx={{ marginLeft: isSmallScreen ? "1rem" : "3rem", marginBottom: "1rem" }}
+    >
+      <Typography
+        variant="body2"
+        sx={{
+          color: PRIMARY_MAIN,
+          fontStyle: "italic",
+          fontSize: isSmallScreen ? "0.875rem" : "1rem",
+        }}
+      >
+        {currentMessage}
+        {dots}
+      </Typography>
+    </Box>
+  );
+}
+
+export default ChatBody;
 
 // Stateless API integration function
 const getBotResponse = async (setMessageList, setProcessing, message) => {
   try {
     const requestBody = {
       message: message,
-    }
+    };
 
-    console.log("Sending stateless request:", requestBody)
+    console.log("Sending stateless request:", requestBody);
 
     const response = await fetch(CHAT_ENDPOINT, {
       method: "POST",
@@ -256,34 +346,39 @@ const getBotResponse = async (setMessageList, setProcessing, message) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
-    })
+    });
 
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error("API Error:", errorText)
-      throw new Error(`HTTP error! status: ${response.status}`)
+      const errorText = await response.text();
+      console.error("API Error:", errorText);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data = await response.json()
-    console.log("API Response:", data)
+    const data = await response.json();
+    console.log("API Response:", data);
 
     if (data.success) {
-      const botMessageBlock = createMessageBlock(data.message, "BOT", "TEXT", "RECEIVED")
-      botMessageBlock.sources = data.sources || []
-      setMessageList((prevList) => [...prevList, botMessageBlock])
+      const botMessageBlock = createMessageBlock(
+        data.message,
+        "BOT",
+        "TEXT",
+        "RECEIVED"
+      );
+      botMessageBlock.sources = data.sources || [];
+      setMessageList((prevList) => [...prevList, botMessageBlock]);
     } else {
-      throw new Error(data.error || "Failed to get response")
+      throw new Error(data.error || "Failed to get response");
     }
   } catch (error) {
-    console.error("Error getting bot response:", error)
+    console.error("Error getting bot response:", error);
     const errorMessageBlock = createMessageBlock(
       "Sorry, I'm having trouble responding right now. Please try again later.",
       "BOT",
       "TEXT",
-      "RECEIVED",
-    )
-    setMessageList((prevList) => [...prevList, errorMessageBlock])
+      "RECEIVED"
+    );
+    setMessageList((prevList) => [...prevList, errorMessageBlock]);
   } finally {
-    setProcessing(false)
+    setProcessing(false);
   }
-}
+};

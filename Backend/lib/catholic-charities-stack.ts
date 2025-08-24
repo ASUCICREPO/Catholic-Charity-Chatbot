@@ -1,31 +1,35 @@
-import * as cdk from "aws-cdk-lib"
-import * as s3 from "aws-cdk-lib/aws-s3"
-import * as lambda from "aws-cdk-lib/aws-lambda"
-import * as iam from "aws-cdk-lib/aws-iam"
-import * as qbusiness from "aws-cdk-lib/aws-qbusiness"
-import * as s3deploy from "aws-cdk-lib/aws-s3-deployment"
-import * as events from "aws-cdk-lib/aws-events"
-import * as targets from "aws-cdk-lib/aws-events-targets"
-import type { Construct } from "constructs"
+import * as cdk from "aws-cdk-lib";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as iam from "aws-cdk-lib/aws-iam";
+import * as qbusiness from "aws-cdk-lib/aws-qbusiness";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import * as events from "aws-cdk-lib/aws-events";
+import * as targets from "aws-cdk-lib/aws-events-targets";
+import type { Construct } from "constructs";
 
 export interface CatholicCharitiesStackProps extends cdk.StackProps {
-  readonly githubUrl?: string
-  readonly projectName?: string
-  readonly urlFilesPath?: string
-  readonly amplifyAppName?: string
-  readonly amplifyBranchName?: string
-  readonly dataBucketName?: string    
-  readonly frontendBucketName?: string
+  readonly githubUrl?: string;
+  readonly projectName?: string;
+  readonly urlFilesPath?: string;
+  readonly amplifyAppName?: string;
+  readonly amplifyBranchName?: string;
+  readonly dataBucketName?: string;
+  readonly frontendBucketName?: string;
 }
 
 export class CatholicCharitiesStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props: CatholicCharitiesStackProps) {
-    super(scope, id, props)
+  constructor(
+    scope: Construct,
+    id: string,
+    props: CatholicCharitiesStackProps
+  ) {
+    super(scope, id, props);
 
-    const projectName = props.projectName
-    const urlFilesPath = props.urlFilesPath
-    const dataBucketName = props.dataBucketName
-    const frontendBucketName = props.frontendBucketName
+    const projectName = props.projectName;
+    const urlFilesPath = props.urlFilesPath;
+    const dataBucketName = props.dataBucketName;
+    const frontendBucketName = props.frontendBucketName;
 
     // S3 Buckets
     const dataBucket = new s3.Bucket(this, "DataSourceBucket", {
@@ -34,8 +38,13 @@ export class CatholicCharitiesStack extends cdk.Stack {
       autoDeleteObjects: true,
       versioned: false,
       publicReadAccess: true,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
-    })
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicAcls: false,
+        blockPublicPolicy: false,
+        ignorePublicAcls: false,
+        restrictPublicBuckets: false,
+      }),
+    });
 
     // Add bucket policy to allow public read access to documents
     dataBucket.addToResourcePolicy(
@@ -43,10 +52,26 @@ export class CatholicCharitiesStack extends cdk.Stack {
         sid: "AllowPublicReadAccessToDocuments",
         effect: iam.Effect.ALLOW,
         principals: [new iam.AnyPrincipal()],
+        actions: ["s3:GetObject", "s3:GetObjectVersion"],
+        resources: [`${dataBucket.bucketArn}/*`],
+        conditions: {
+          StringEquals: {
+            "s3:ExistingObjectTag/public": "true",
+          },
+        },
+      })
+    );
+
+    // Add a more permissive policy for all objects
+    dataBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: "AllowPublicReadAccessToAllObjects",
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.AnyPrincipal()],
         actions: ["s3:GetObject"],
         resources: [`${dataBucket.bucketArn}/*`],
       })
-    )
+    );
 
     const frontendBucket = new s3.Bucket(this, "FrontendBuildBucket", {
       bucketName: frontendBucketName,
@@ -56,7 +81,7 @@ export class CatholicCharitiesStack extends cdk.Stack {
       publicReadAccess: false,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       eventBridgeEnabled: true,
-    })
+    });
 
     frontendBucket.addToResourcePolicy(
       new iam.PolicyStatement({
@@ -85,14 +110,18 @@ export class CatholicCharitiesStack extends cdk.Stack {
             "aws:SourceAccount": this.account,
           },
         },
-      }),
-    )
+      })
+    );
 
-    const urlFilesDeployment = new s3deploy.BucketDeployment(this, "DeployUrlFiles", {
-      sources: [s3deploy.Source.asset(`./${urlFilesPath}`)],
-      destinationBucket: dataBucket,
-      include: ["*.txt","*.xlsx", "*.pdf", "*.docx"],
-    })
+    const urlFilesDeployment = new s3deploy.BucketDeployment(
+      this,
+      "DeployUrlFiles",
+      {
+        sources: [s3deploy.Source.asset(`./${urlFilesPath}`)],
+        destinationBucket: dataBucket,
+        include: ["*.txt", "*.xlsx", "*.pdf", "*.docx"],
+      }
+    );
 
     const applicationRole = new iam.Role(this, "QBusinessApplicationRole", {
       assumedBy: new iam.ServicePrincipal("qbusiness.amazonaws.com", {
@@ -122,24 +151,36 @@ export class CatholicCharitiesStack extends cdk.Stack {
             new iam.PolicyStatement({
               sid: "AmazonQApplicationCreateLogGroupPermission",
               actions: ["logs:CreateLogGroup"],
-              resources: [`arn:aws:logs:${this.region}:${this.account}:log-group:/aws/qbusiness/*`],
+              resources: [
+                `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/qbusiness/*`,
+              ],
             }),
             new iam.PolicyStatement({
               sid: "AmazonQApplicationLogStreamPermission",
-              actions: ["logs:DescribeLogStreams", "logs:CreateLogStream", "logs:PutLogEvents"],
-              resources: [`arn:aws:logs:${this.region}:${this.account}:log-group:/aws/qbusiness/*:log-stream:*`],
+              actions: [
+                "logs:DescribeLogStreams",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+              ],
+              resources: [
+                `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/qbusiness/*:log-stream:*`,
+              ],
             }),
           ],
         }),
       },
-    })
+    });
 
-    const qBusinessApp = new qbusiness.CfnApplication(this, "QBusinessApplication", {
-      displayName: `${projectName}-app`,
-      description: "Catholic Charities AI Assistant Q Business Application",
-      roleArn: applicationRole.roleArn,
-      identityType: "ANONYMOUS",
-    })
+    const qBusinessApp = new qbusiness.CfnApplication(
+      this,
+      "QBusinessApplication",
+      {
+        displayName: `${projectName}-app`,
+        description: "Catholic Charities AI Assistant Q Business Application",
+        roleArn: applicationRole.roleArn,
+        identityType: "ANONYMOUS",
+      }
+    );
 
     const qBusinessIndex = new qbusiness.CfnIndex(this, "QBusinessIndex", {
       applicationId: qBusinessApp.attrApplicationId,
@@ -149,18 +190,22 @@ export class CatholicCharitiesStack extends cdk.Stack {
       capacityConfiguration: {
         units: 5,
       },
-    })
+    });
 
-    const qBusinessRetriever = new qbusiness.CfnRetriever(this, "QBusinessRetriever", {
-      applicationId: qBusinessApp.attrApplicationId,
-      displayName: `${projectName}-retriever`,
-      type: "NATIVE_INDEX",
-      configuration: {
-        nativeIndexConfiguration: {
-          indexId: qBusinessIndex.attrIndexId,
+    const qBusinessRetriever = new qbusiness.CfnRetriever(
+      this,
+      "QBusinessRetriever",
+      {
+        applicationId: qBusinessApp.attrApplicationId,
+        displayName: `${projectName}-retriever`,
+        type: "NATIVE_INDEX",
+        configuration: {
+          nativeIndexConfiguration: {
+            indexId: qBusinessIndex.attrIndexId,
+          },
         },
-      },
-    })
+      }
+    );
 
     const webCrawlerRole = new iam.Role(this, "WebCrawlerRole", {
       assumedBy: new iam.ServicePrincipal("qbusiness.amazonaws.com", {
@@ -173,7 +218,10 @@ export class CatholicCharitiesStack extends cdk.Stack {
         WebCrawlerPolicy: new iam.PolicyDocument({
           statements: [
             new iam.PolicyStatement({
-              actions: ["qbusiness:BatchPutDocument", "qbusiness:BatchDeleteDocument"],
+              actions: [
+                "qbusiness:BatchPutDocument",
+                "qbusiness:BatchDeleteDocument",
+              ],
               resources: [
                 qBusinessApp.attrApplicationArn,
                 qBusinessIndex.attrIndexArn,
@@ -190,12 +238,9 @@ export class CatholicCharitiesStack extends cdk.Stack {
                 "s3:GetObject",
                 "s3:ListBucket",
                 "s3:GetBucketLocation",
-                "s3:GetBucketVersioning"
+                "s3:GetBucketVersioning",
               ],
-              resources: [
-                dataBucket.bucketArn,
-                `${dataBucket.bucketArn}/*`
-              ],
+              resources: [dataBucket.bucketArn, `${dataBucket.bucketArn}/*`],
             }),
           ],
         }),
@@ -206,18 +251,22 @@ export class CatholicCharitiesStack extends cdk.Stack {
               actions: [
                 "qbusiness:PutDataSourceSyncJob",
                 "qbusiness:BatchPutDocument",
-                "qbusiness:BatchDeleteDocument"
+                "qbusiness:BatchDeleteDocument",
               ],
               resources: ["*"],
             }),
           ],
         }),
       },
-    })
+    });
 
     const dataSourceCreatorRole = new iam.Role(this, "DataSourceCreatorRole", {
       assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
-      managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole")],
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          "service-role/AWSLambdaBasicExecutionRole"
+        ),
+      ],
       inlinePolicies: {
         S3Access: new iam.PolicyDocument({
           statements: [
@@ -241,7 +290,7 @@ export class CatholicCharitiesStack extends cdk.Stack {
                 "qbusiness:StopDataSourceSyncJob",
                 "qbusiness:ListDataSourceSyncJobs",
                 "qbusiness:GetDataSource",
-                "qbusiness:GetDataSourceSyncJob" 
+                "qbusiness:GetDataSourceSyncJob",
               ],
               resources: ["*"],
             }),
@@ -257,7 +306,7 @@ export class CatholicCharitiesStack extends cdk.Stack {
           ],
         }),
       },
-    })
+    });
 
     const dataSourceCreator = new lambda.Function(this, "DataSourceCreator", {
       runtime: lambda.Runtime.PYTHON_3_11,
@@ -449,12 +498,35 @@ def handler(event, context):
                         try:
                             sanitized_name = sanitize_display_name(key)
                             logger.info(f"Processing document {key} with sanitized name {sanitized_name}")
+                            
+                            # Determine inclusion and exclusion patterns based on file type
+                            if key.endswith('.pdf'):
+                                inclusion_patterns = ['*.pdf']
+                                exclusion_patterns = ['*.csv', '*.txt', '*.xlsx', '*.docx']
+                                description = f"PDF document source for {key}"
+                            elif key.endswith('.csv'):
+                                inclusion_patterns = ['*.csv']
+                                exclusion_patterns = ['*.pdf', '*.txt', '*.xlsx', '*.docx']
+                                description = f"CSV document source for {key}"
+                            elif key.endswith('.xlsx'):
+                                inclusion_patterns = ['*.xlsx']
+                                exclusion_patterns = ['*.pdf', '*.csv', '*.txt', '*.docx']
+                                description = f"Excel document source for {key}"
+                            elif key.endswith('.docx'):
+                                inclusion_patterns = ['*.docx']
+                                exclusion_patterns = ['*.pdf', '*.csv', '*.txt', '*.xlsx']
+                                description = f"Word document source for {key}"
+                            else:
+                                inclusion_patterns = ['*.*']
+                                exclusion_patterns = ['*.txt']
+                                description = f"Document source for {key}"
+                            
                             # Create a data source for the document
                             data_source_response = qbusiness_client.create_data_source(
                                 applicationId=application_id,
                                 indexId=index_id,
                                 displayName=f"{project_name}-{sanitized_name}",
-                                description=f"Document source for {key}",
+                                description=description,
                                 roleArn=web_crawler_role_arn,
                                 configuration={
                                     'type': 'S3',
@@ -486,8 +558,8 @@ def handler(event, context):
                                         },
                                     },
                                     'additionalProperties': {
-                                        'inclusionPatterns': ['*.csv'],
-                                        'exclusionPatterns': ['*.txt'],
+                                        'inclusionPatterns': inclusion_patterns,
+                                        'exclusionPatterns': exclusion_patterns,
                                     },
                                 }
                             )
@@ -529,24 +601,32 @@ def handler(event, context):
 `),
       timeout: cdk.Duration.minutes(15),
       role: dataSourceCreatorRole,
-    })
+    });
 
-    const dataSourcesCustomResource = new cdk.CustomResource(this, "DataSourcesCustomResource", {
-      serviceToken: dataSourceCreator.functionArn,
-      properties: {
-        BucketName: dataBucket.bucketName,
-        ApplicationId: qBusinessApp.attrApplicationId,
-        IndexId: qBusinessIndex.attrIndexId,
-        WebCrawlerRoleArn: webCrawlerRole.roleArn,
-        ProjectName: projectName,
-      },
-    })
+    const dataSourcesCustomResource = new cdk.CustomResource(
+      this,
+      "DataSourcesCustomResource",
+      {
+        serviceToken: dataSourceCreator.functionArn,
+        properties: {
+          BucketName: dataBucket.bucketName,
+          ApplicationId: qBusinessApp.attrApplicationId,
+          IndexId: qBusinessIndex.attrIndexId,
+          WebCrawlerRoleArn: webCrawlerRole.roleArn,
+          ProjectName: projectName,
+        },
+      }
+    );
 
-    dataSourcesCustomResource.node.addDependency(urlFilesDeployment)
+    dataSourcesCustomResource.node.addDependency(urlFilesDeployment);
 
     const lambdaRole = new iam.Role(this, "LambdaExecutionRole", {
       assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
-      managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole")],
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          "service-role/AWSLambdaBasicExecutionRole"
+        ),
+      ],
       inlinePolicies: {
         QBusinessFullAccess: new iam.PolicyDocument({
           statements: [
@@ -567,7 +647,7 @@ def handler(event, context):
           ],
         }),
       },
-    })
+    });
 
     const chatLambda = new lambda.Function(this, "ChatLambdaFunction", {
       runtime: lambda.Runtime.PYTHON_3_11,
@@ -581,23 +661,33 @@ def handler(event, context):
         DEBUG: "false",
       },
       description: "Catholic Charities Q Business Chat Handler",
-    })
+    });
 
     // Create Lambda Function URL instead of API Gateway
     const functionUrl = chatLambda.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE,
       cors: {
         allowCredentials: false,
-        allowedHeaders: ["Content-Type", "Authorization", "X-Amz-Date", "X-Api-Key", "X-Amz-Security-Token"],
+        allowedHeaders: [
+          "Content-Type",
+          "Authorization",
+          "X-Amz-Date",
+          "X-Api-Key",
+          "X-Amz-Security-Token",
+        ],
         allowedMethods: [lambda.HttpMethod.GET, lambda.HttpMethod.POST],
         allowedOrigins: ["*"], // In production, you might want to restrict this to your Amplify domain
         maxAge: cdk.Duration.hours(1),
       },
-    })
+    });
 
     const amplifyDeployerRole = new iam.Role(this, "AmplifyDeployerRole", {
       assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
-      managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole")],
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName(
+          "service-role/AWSLambdaBasicExecutionRole"
+        ),
+      ],
       inlinePolicies: {
         AmplifyAccess: new iam.PolicyDocument({
           statements: [
@@ -638,12 +728,15 @@ def handler(event, context):
                 "s3:GetBucketPublicAccessBlock",
                 "s3:GetEncryptionConfiguration",
               ],
-              resources: [frontendBucket.bucketArn, `${frontendBucket.bucketArn}/*`],
+              resources: [
+                frontendBucket.bucketArn,
+                `${frontendBucket.bucketArn}/*`,
+              ],
             }),
           ],
         }),
       },
-    })
+    });
 
     const amplifyDeployer = new lambda.Function(this, "AmplifyDeployer", {
       runtime: lambda.Runtime.PYTHON_3_11,
@@ -726,7 +819,7 @@ def handler(event, context):
         AMPLIFY_APP_ID: "placeholder",
         AMPLIFY_BRANCH_NAME: "main",
       },
-    })
+    });
 
     const s3UploadRule = new events.Rule(this, "S3BuildUploadRule", {
       eventPattern: {
@@ -741,63 +834,63 @@ def handler(event, context):
           },
         },
       },
-    })
+    });
 
-    s3UploadRule.addTarget(new targets.LambdaFunction(amplifyDeployer))
+    s3UploadRule.addTarget(new targets.LambdaFunction(amplifyDeployer));
 
     amplifyDeployer.addPermission("AllowEventBridgeInvoke", {
       principal: new iam.ServicePrincipal("events.amazonaws.com"),
       sourceArn: s3UploadRule.ruleArn,
-    })
+    });
 
     new cdk.CfnOutput(this, "QBusinessApplicationId", {
       value: qBusinessApp.attrApplicationId,
       description: "Q Business Application ID",
-    })
+    });
 
     new cdk.CfnOutput(this, "QBusinessIndexId", {
       value: qBusinessIndex.attrIndexId,
       description: "Q Business Index ID",
-    })
+    });
 
     new cdk.CfnOutput(this, "QBusinessRetrieverId", {
       value: qBusinessRetriever.attrRetrieverId,
       description: "Q Business Retriever ID",
-    })
+    });
 
     new cdk.CfnOutput(this, "DataSourceInfo", {
       value: dataSourcesCustomResource.getAttString("DataSources"),
       description: "Q Business Data Sources Info",
-    })
+    });
 
     new cdk.CfnOutput(this, "LambdaFunctionURL", {
       value: functionUrl.url,
       description: "Lambda Function URL",
-    })
+    });
 
     new cdk.CfnOutput(this, "ChatEndpoint", {
       value: functionUrl.url,
       description: "Chat API Endpoint (Lambda Function URL)",
-    })
+    });
 
     new cdk.CfnOutput(this, "HealthEndpoint", {
       value: functionUrl.url,
       description: "Health Check Endpoint (Lambda Function URL)",
-    })
+    });
 
     new cdk.CfnOutput(this, "S3BucketName", {
       value: dataBucket.bucketName,
       description: "S3 Data Source Bucket Name",
-    })
+    });
 
     new cdk.CfnOutput(this, "FrontendBuildBucketName", {
       value: frontendBucket.bucketName,
       description: "S3 Bucket for Frontend Build Artifacts",
-    })
+    });
 
     new cdk.CfnOutput(this, "AmplifyDeployerFunctionName", {
       value: amplifyDeployer.functionName,
       description: "Amplify Deployer Lambda Function Name",
-    })
+    });
   }
 }
