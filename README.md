@@ -18,7 +18,7 @@ This application combines natural language processing with a knowledge base of C
 - **Document support** for PDF, DOCX, XLSX, and CSV files
 
 ## Architecture Overview
-
+![Architecture Diagram](docs/architecture.png)
 The application uses a modern serverless architecture:
 
 - **Frontend**: React application hosted on AWS Amplify
@@ -40,31 +40,72 @@ The application uses a modern serverless architecture:
 .
 ├── Backend/                        # AWS CDK infrastructure and backend logic
 │   ├── bin/                        # CDK app entry point
+│   │   └── catholic-charities-cdk.ts
 │   ├── data-sources/               # Data source files for indexing
-│   │   ├── urls1.txt              # URLs for web crawling
-│   │   ├── urls2.txt              # URLs for web crawling
-│   │   └── *.pdf, *.docx, etc.    # Document files for indexing
+│   │   ├── urls1.txt              # URLs for web crawling (Alaska, Alabama, etc.)
+│   │   ├── urls2.txt              # Additional URLs for web crawling (New Jersey, etc.)
+│   │   └── *.pdf, *.docx, *.xlsx, *.csv # Document files for indexing
 │   ├── lambda/                     # Lambda function code
 │   │   └── lambda_function.py     # Chat handler with Function URL support
 │   ├── lib/                       # CDK stack definitions
-│   │   └── catholic-charities-stack.ts
-│   ├── deploy.sh                  # Deployment automation script
+│   │   └── catholic-charities-stack.ts # Main CDK stack with Lambda Function URLs
+│   ├── node_modules/              # Node.js dependencies (auto-generated)
+│   ├── cdk.out/                   # CDK synthesis output (auto-generated)
 │   ├── buildspec.yml              # AWS CodeBuild configuration
-│   ├── package.json               # Backend dependencies
+│   ├── cdk.json                   # CDK configuration
+│   ├── deploy.sh                  # Deployment automation script
+│   ├── package.json               # Backend dependencies and scripts
+│   ├── package-lock.json          # Locked dependency versions
+│   ├── tsconfig.json              # TypeScript configuration
+│   ├── .gitignore                 # Git ignore patterns
 │   └── README.md                  # Backend-specific documentation
 ├── Frontend/                       # React-based web application
 │   ├── public/                    # Static assets and images
+│   │   ├── Assets/                # Application assets
+│   │   │   ├── catholic_bot1.svg  # Bot avatar icon
+│   │   │   └── UserAvatar.svg     # User avatar icon
+│   │   ├── favicon.ico            # Browser favicon
+│   │   ├── index.html             # Main HTML template
+│   │   ├── manifest.json          # PWA manifest
+│   │   └── robots.txt             # Search engine robots file
 │   ├── src/                       # React source code
 │   │   ├── Components/            # React components
+│   │   │   ├── AppHeader.jsx      # Application header component
+│   │   │   ├── BotReply.jsx       # Bot message display component
+│   │   │   ├── ChatBody.jsx       # Main chat interface with Function URL integration
+│   │   │   ├── ChatHeader.jsx     # Chat section header
+│   │   │   ├── ChatInput.jsx      # User input component
+│   │   │   ├── CatholicCharitiesLogo.jsx # Custom SVG logo component
+│   │   │   ├── FAQExamples.jsx    # FAQ prompt buttons
+│   │   │   ├── LeftNav.jsx        # Sidebar navigation
+│   │   │   └── UserReply.jsx      # User message display component
 │   │   ├── utilities/             # Shared utilities and configuration
-│   │   └── ...                    # Other React files
-│   ├── package.json               # Frontend dependencies
+│   │   │   ├── constants.js       # API endpoints and theme constants
+│   │   │   ├── createMessageBlock.js # Message object creation utility
+│   │   │   └── theme.js           # Material-UI theme configuration
+│   │   ├── App.js                 # Main React application component
+│   │   ├── App.css                # Application styles
+│   │   ├── index.js               # React application entry point
+│   │   └── index.css              # Global styles
+│   ├── build/                     # Production build output (auto-generated)
+│   ├── node_modules/              # Node.js dependencies (auto-generated)
+│   ├── package.json               # Frontend dependencies and scripts
+│   ├── package-lock.json          # Locked dependency versions
+│   ├── .env.production            # Production environment variables (auto-generated)
+│   ├── .gitignore                 # Git ignore patterns
+│   └── README.md                  # Frontend-specific documentation
+├── docs/                          # Documentation and assets
+│   └── architecture.png           # Architecture diagram
+├── .git/                          # Git repository data
+├── .gitignore                     # Global git ignore patterns
+├── LICENSE                        # Project license
 └── README.md                      # Project overview and deployment guide
 ```
 
 For detailed information about each component:
 
 - **Backend**: See [Backend/README.md](Backend/README.md) for architecture details, Lambda functions, and data source management
+- **Frontend**: See [Frontend/README.md](Frontend/README.md) for React components, styling, and local development
 
 ## Deployment Instructions
 
@@ -110,7 +151,7 @@ For detailed information about each component:
 4. **Provide Configuration**:
 
    - **GitHub URL**: Your forked repository URL
-   - **Project Name**: Custom name (default: `catholic-charities-hybrid`)
+   - **Project Name**: Custom name (default: `catholic-charities`)
    - **Other Parameters**: Press Enter for defaults
 
 5. **Monitor Deployment**:
@@ -156,7 +197,7 @@ For detailed information about each component:
 
 **Replace the placeholder values in the commands below with your actual values:**
 
-- `<PROJECT_NAME>`: Your project name (e.g., `catholic-charities-hybrid`)
+- `<PROJECT_NAME>`: Your project name (e.g., `catholic-charities`)
 - `<AWS_ACCOUNT_ID>`: Your AWS account ID (get with `aws sts get-caller-identity --query Account --output text`)
 - `<AWS_REGION>`: Your AWS region (e.g., `us-west-2`)
 - `<AMPLIFY_APP_NAME>`: Your Amplify app name (e.g., `<PROJECT_NAME>-frontend`)
@@ -300,13 +341,13 @@ For easy reference, here are the parameters you need to replace:
 
 | Placeholder               | Description                       | Example                                                   |
 | ------------------------- | --------------------------------- | --------------------------------------------------------- |
-| `<PROJECT_NAME>`          | Your project name                 | `catholic-charities-hybrid`                               |
+| `<PROJECT_NAME>`          | Your project name                 | `catholic-charities`                               |
 | `<AWS_ACCOUNT_ID>`        | Your AWS account ID               | `123456789012`                                            |
 | `<AWS_REGION>`            | Your AWS region                   | `us-west-2`                                               |
-| `<AMPLIFY_APP_NAME>`      | Your Amplify app name             | `catholic-charities-hybrid-frontend`                      |
+| `<AMPLIFY_APP_NAME>`      | Your Amplify app name             | `catholic-charities-frontend`                      |
 | `<LAMBDA_FUNCTION_URL>`   | Lambda Function URL from step 4   | `https://abc123.lambda-url.us-west-2.on.aws/`             |
 | `<AMPLIFY_APP_ID>`        | Amplify App ID from step 6        | `d1a2b3c4d5e6f7`                                          |
-| `<FRONTEND_BUILD_BUCKET>` | Frontend build bucket from step 4 | `catholic-charities-hybrid-builds-123456789012-us-west-2` |
+| `<FRONTEND_BUILD_BUCKET>` | Frontend build bucket from step 4 | `catholic-charities-builds-123456789012-us-west-2` |
 
 ## Usage
 
