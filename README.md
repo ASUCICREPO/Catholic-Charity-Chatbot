@@ -19,6 +19,7 @@ This application combines natural language processing with a knowledge base of C
 
 ## Architecture Overview
 ![Architecture Diagram](docs/architecture.png)
+
 The application uses a modern serverless architecture:
 
 - **Frontend**: React application hosted on AWS Amplify
@@ -49,8 +50,6 @@ The application uses a modern serverless architecture:
 │   │   └── lambda_function.py     # Chat handler with Function URL support
 │   ├── lib/                       # CDK stack definitions
 │   │   └── catholic-charities-stack.ts # Main CDK stack with Lambda Function URLs
-│   ├── node_modules/              # Node.js dependencies (auto-generated)
-│   ├── cdk.out/                   # CDK synthesis output (auto-generated)
 │   ├── buildspec.yml              # AWS CodeBuild configuration
 │   ├── cdk.json                   # CDK configuration
 │   ├── deploy.sh                  # Deployment automation script
@@ -61,9 +60,6 @@ The application uses a modern serverless architecture:
 │   └── README.md                  # Backend-specific documentation
 ├── Frontend/                       # React-based web application
 │   ├── public/                    # Static assets and images
-│   │   ├── Assets/                # Application assets
-│   │   │   ├── catholic_bot1.svg  # Bot avatar icon
-│   │   │   └── UserAvatar.svg     # User avatar icon
 │   │   ├── favicon.ico            # Browser favicon
 │   │   ├── index.html             # Main HTML template
 │   │   ├── manifest.json          # PWA manifest
@@ -87,17 +83,11 @@ The application uses a modern serverless architecture:
 │   │   ├── App.css                # Application styles
 │   │   ├── index.js               # React application entry point
 │   │   └── index.css              # Global styles
-│   ├── build/                     # Production build output (auto-generated)
-│   ├── node_modules/              # Node.js dependencies (auto-generated)
 │   ├── package.json               # Frontend dependencies and scripts
 │   ├── package-lock.json          # Locked dependency versions
-│   ├── .env.production            # Production environment variables (auto-generated)
 │   ├── .gitignore                 # Git ignore patterns
-│   └── README.md                  # Frontend-specific documentation
 ├── docs/                          # Documentation and assets
 │   └── architecture.png           # Architecture diagram
-├── .git/                          # Git repository data
-├── .gitignore                     # Global git ignore patterns
 ├── LICENSE                        # Project license
 └── README.md                      # Project overview and deployment guide
 ```
